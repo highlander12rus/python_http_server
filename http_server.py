@@ -5,13 +5,12 @@ import logging
 LISTEN_ADDRESS = '127.0.0.1'
 PORT_LISTEN = 80
 SOCEKET_COUTN_LISTEN = 5
+BLOCK_SIZE_SOCKET_READ = 4096
 #////////////////////////////////////////////////////////////////////////////
 
 def receive(sock):
-    block_size = 4096
-    chunks = []
+    block_size = BLOCK_SIZE_SOCKET_READ
     reques = ''
-    #current = sock.recv(block_size)
     while True:
         reques += sock.recv(block_size)
         if(reques.find('\r\n\r\n') > 1):
@@ -19,9 +18,26 @@ def receive(sock):
             # ne ukazan v zagolovke Content-Length or Transfer-Encoding, esli ukazan to chitaem body
     return reques
 
+def parse_method(header):
+   return  header.split(' ') #(method, url, http_protocol)
 
 def process_client(sock):
-    responce = receive(sock)
+    request = receive(sock).split("\r\n") 
+    
+    (method, url, http_protocol) = parse_method(request[0])
+    print 'method=' + method
+    print 'url='+ url
+    print 'http_protocol=' + http_protocol
+    
+    headers = {}
+    for header in request[1:]:  #start s one
+        print header
+        
+        #k, v = header.split(":", 1)
+        #headers[k] = v
+        
+    print 'end headers execute\n'    
+    print headers
     sock.send("HTTP/1.0 200 OK\r\n")       
     sock.send("Content-Type: text/plain\r\n")  
     sock.send("\r\n")                           
@@ -46,7 +62,7 @@ def start_server():
         try:
             process_client(clientsocket)
         except Exception as e:
-            logging.error('error!\n{}'.format(traceback.format_exc()))
+            #logging.error('error!\n{}'.format(traceback.format_exc()))
             clientsocket.close()
 
 
