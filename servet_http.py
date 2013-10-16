@@ -6,6 +6,9 @@ LISTEN_ADDRESS = '127.0.0.1'
 PORT_LISTEN = 80
 SOCEKET_COUTN_LISTEN = 5
 BLOCK_SIZE_SOCKET_READ = 4096
+LOAD_INDEX_PAGE = 'index.html';
+PATH_TO_DIRICOTRY_FILES = ''
+PAGE_FILE_NOT_FOUND = '404.html'
 #////////////////////////////////////////////////////////////////////////////
 
 def receive(sock):
@@ -30,21 +33,64 @@ def process_client(sock):
     print 'http_protocol=' + http_protocol
     
     headers = {}
-    for header in request[1:]:  #start s one
+    for header in request[1:len(request)-2]:  #start s one
         print header
-        
-        #k, v = header.split(":", 1)
-        #headers[k] = v
-        
+        if header == "\r\n" :
+            break
+        k, v = header.split(":", 1)
+        headers[k] = v
+    headers['url'] = url
+    headers['http_protocol'] = http_protocol
+    headers['method']=method
+    
     print 'end headers execute\n'    
-    print headers
-    sock.send("HTTP/1.0 200 OK\r\n")       
+    send_data_to_client(sock, url) 
+    #print headers
+    #sock.send("HTTP/1.0 200 OK\r\n")       
+    #sock.send("Content-Type: text/plain\r\n")  
+    #sock.send("\r\n")                           
+    #sock.send("Hi there!")                    
+    #sock.close()  
+    #print responce
+
+def send_file_noit_found(sock):
+    sock.send("HTTP/1.0 404 Not Found\r\n")       
     sock.send("Content-Type: text/plain\r\n")  
     sock.send("\r\n")                           
-    sock.send("Hi there!")                    
+    sock.send(send_data_to_client(sock, '/' + PAGE_FILE_NOT_FOUND))                    
     sock.close()  
-    print responce
 
+def formated_path_to_file(url):
+    if len(url) == 1 and url == '/':
+        url += LOAD_INDEX_PAGE
+    path = PATH_TO_DIRICOTRY_FILES + url[1:]
+    print 'path=' + path
+    return path;
+
+def open_or_throw_file(path):
+    f = open(path, 'rb')
+    fileContent = f.read()
+    return fileContent
+
+    #except IOError:
+     #  print 'Oh dear.'
+
+def send_data_to_client(sock, url):
+    path = formated_path_to_file(url)
+    
+    try:
+      fileContent = open_or_throw_file(path)
+      sock.send("HTTP/1.0 200 OK\r\n")       
+      sock.send("Content-Type: text/plain\r\n")  
+      sock.send("\r\n")                           
+      sock.send(fileContent)                    
+      sock.close()  
+    except IOError:
+        print 'file not found'
+        send_file_noit_found(sock)
+        
+    
+      
 
 def create_server_socket():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,6 +109,7 @@ def start_server():
             process_client(clientsocket)
         except Exception as e:
             #logging.error('error!\n{}'.format(traceback.format_exc()))
+            print e
             clientsocket.close()
 
 
