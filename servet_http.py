@@ -1,4 +1,5 @@
 import socket
+import os
 import logging
 
 #////////////////////////// CONSTANTS ///////////////////////////////////////
@@ -6,11 +7,28 @@ LISTEN_ADDRESS = '127.0.0.1'
 PORT_LISTEN = 80
 SOCEKET_COUTN_LISTEN = 5
 BLOCK_SIZE_SOCKET_READ = 4096
+
+
+FILE_MIME_TYPES = 'mime_types.txt'
+#///////////////////////Constants path
 LOAD_INDEX_PAGE = 'index.html';
 PATH_TO_DIRICOTRY_FILES = ''
 PAGE_FILE_NOT_FOUND = '404.html'
 #////////////////////////////////////////////////////////////////////////////
 
+
+mime_type = {};
+try:
+    f = open(FILE_MIME_TYPES, 'r')
+    for line in f:
+        exten, mime = line.split('	')
+        mime_type[exten] = mime
+except IOError:
+    print 'Error, file mime type dont loading'   
+
+
+
+#recieve responce
 def receive(sock):
     block_size = BLOCK_SIZE_SOCKET_READ
     reques = ''
@@ -21,8 +39,10 @@ def receive(sock):
             # ne ukazan v zagolovke Content-Length or Transfer-Encoding, esli ukazan to chitaem body
     return reques
 
+
 def parse_method(header):
    return  header.split(' ') #(method, url, http_protocol)
+
 
 def process_client(sock):
     request = receive(sock).split("\r\n") 
@@ -33,31 +53,31 @@ def process_client(sock):
     print 'http_protocol=' + http_protocol
     
     headers = {}
-    for header in request[1:len(request)-2]:  #start s one
-        print header
+    for header in request[1:len(request)-2]:  #start s one and delete last \r\n
         if header == "\r\n" :
             break
         k, v = header.split(":", 1)
         headers[k] = v
+        
     headers['url'] = url
     headers['http_protocol'] = http_protocol
-    headers['method']=method
+    headers['method'] = method
     
     print 'end headers execute\n'    
     send_data_to_client(sock, url) 
-    #print headers
-    #sock.send("HTTP/1.0 200 OK\r\n")       
-    #sock.send("Content-Type: text/plain\r\n")  
-    #sock.send("\r\n")                           
-    #sock.send("Hi there!")                    
-    #sock.close()  
-    #print responce
 
 def send_file_noit_found(sock):
-    sock.send("HTTP/1.0 404 Not Found\r\n")       
-    sock.send("Content-Type: text/plain\r\n")  
-    sock.send("\r\n")                           
-    sock.send(send_data_to_client(sock, '/' + PAGE_FILE_NOT_FOUND))                    
+    path = formated_path_to_file('/' + PAGE_FILE_NOT_FOUND)
+    extension = os.path.splitext(path)[1][1:] #file extension and delete '.'
+    try:
+        fileContent = open_or_throw_file(path)
+
+        sock.send("HTTP/1.0 404 Not Found\r\n")       
+        sock.send("Content-Type: "+ mime_type[extension] +"\r\n")  
+        sock.send("\r\n")                           
+        sock.send(fileContent)  
+    except IOError: 
+        print 'error not find 404 page'                 
     sock.close()  
 
 def formated_path_to_file(url):
@@ -77,13 +97,17 @@ def open_or_throw_file(path):
 
 def send_data_to_client(sock, url):
     path = formated_path_to_file(url)
-    
+    extension = os.path.splitext(path)[1][1:] #file extension and delete '.'
+    filesize = os.path.getsize(path)
+    print 'extension=' + extension
+    print 'mime_type=' +  mime_type[extension]
     try:
       fileContent = open_or_throw_file(path)
       sock.send("HTTP/1.0 200 OK\r\n")       
-      sock.send("Content-Type: text/plain\r\n")  
+      sock.send("Content-Type: "+ mime_type[extension] +"\r\n")
+      sock.send("Content-Length: %i\r\n" % (filesize))    
       sock.send("\r\n")                           
-      sock.send(fileContent)                    
+      sock.send(fileContent)                     
       sock.close()  
     except IOError:
         print 'file not found'
