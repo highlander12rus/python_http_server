@@ -8,15 +8,14 @@ PORT_LISTEN = 80
 SOCEKET_COUTN_LISTEN = 5
 BLOCK_SIZE_SOCKET_READ = 4096
 
-
-FILE_MIME_TYPES = 'mime_types.txt'
 #///////////////////////Constants path
+FILE_MIME_TYPES = 'mime_types.txt'
 LOAD_INDEX_PAGE = 'index.html';
 PATH_TO_DIRICOTRY_FILES = ''
 PAGE_FILE_NOT_FOUND = '404.html'
 #////////////////////////////////////////////////////////////////////////////
 
-
+#loads mime types
 mime_type = {};
 try:
     f = open(FILE_MIME_TYPES, 'r')
@@ -78,7 +77,7 @@ def send_file_noit_found(sock):
         sock.send(fileContent)  
     except IOError: 
         print 'error not find 404 page'                 
-    sock.close()  
+    sock.shutdown()  
 
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
@@ -88,13 +87,18 @@ def formated_path_to_file(url):
     return path;
 
 def open_or_throw_file(path):
-    f = open(path, 'rb')
+    f = open(path, "rb")
     fileContent = f.read()
     return fileContent
 
-    #except IOError:
-     #  print 'Oh dear.'
-
+def send_all(sock, data):
+    total_sent = 0
+    while total_sent < len(data):
+        sent = sock.send(data[total_sent:])
+        if sent == 0:
+            raise RuntimeError("socket connection broken")
+        total_sent += sent
+        
 def send_data_to_client(sock, url):
     path = formated_path_to_file(url)
     extension = os.path.splitext(path)[1][1:] #file extension and delete '.'
@@ -103,23 +107,14 @@ def send_data_to_client(sock, url):
     print 'mime_type=' +  mime_type[extension]
     print 'fileSize=%i' %(filesize) 
     try:
-      leContent = open_or_throw_file(path)
-      sock.send("HTTP/1.0 200 OK\r\n")
+      fileContent = open_or_throw_file(path)
+      sock.send("HTTP/1.1 200 OK\r\n")
       sock.send("Content-Length: "+str(filesize)+"\r\n")
-      sock.send("Accept-Ranges: bytes\r\n")
-      sock.send("Content-Type: "+ mime_type[extension] +"\r\n")
-      sock.send("\r\n")
-      f = open(path, "rb")
-      try:
-        byte = f.read(1)
-        while byte != "":
-            sock.send(byte)
-            byte = f.read(1)
-      finally:
-        f.close()                    
+      sock.send("Content-Type: "+ mime_type[extension] +"\r\n") 
+      send_all(sock, fileContent)
       sock.close()  
-    except IOError:
-        print 'file not found'
+    except IOError as e:
+        print 'file not found=' + e
         send_file_noit_found(sock)
         
     
