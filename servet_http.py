@@ -101,13 +101,22 @@ def send_data_to_client(sock, url):
     filesize = os.path.getsize(path)
     print 'extension=' + extension
     print 'mime_type=' +  mime_type[extension]
+    print 'fileSize=%i' %(filesize) 
     try:
-      fileContent = open_or_throw_file(path)
-      sock.send("HTTP/1.0 200 OK\r\n")       
+      leContent = open_or_throw_file(path)
+      sock.send("HTTP/1.0 200 OK\r\n")
+      sock.send("Content-Length: "+str(filesize)+"\r\n")
+      sock.send("Accept-Ranges: bytes\r\n")
       sock.send("Content-Type: "+ mime_type[extension] +"\r\n")
-      sock.send("Content-Length: %i\r\n" % (filesize))    
-      sock.send("\r\n")                           
-      sock.send(fileContent)                     
+      sock.send("\r\n")
+      f = open(path, "rb")
+      try:
+        byte = f.read(1)
+        while byte != "":
+            sock.send(byte)
+            byte = f.read(1)
+      finally:
+        f.close()                    
       sock.close()  
     except IOError:
         print 'file not found'
