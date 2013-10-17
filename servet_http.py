@@ -65,20 +65,6 @@ def process_client(sock):
     print 'end headers execute\n'    
     send_data_to_client(sock, url) 
 
-def send_file_noit_found(sock):
-    path = formated_path_to_file('/' + PAGE_FILE_NOT_FOUND)
-    extension = os.path.splitext(path)[1][1:] #file extension and delete '.'
-    try:
-        fileContent = open_or_throw_file(path)
-
-        sock.send("HTTP/1.0 404 Not Found\r\n")       
-        sock.send("Content-Type: "+ mime_type[extension] +"\r\n")  
-        sock.send("\r\n")                           
-        sock.send(fileContent)  
-    except IOError: 
-        print 'error not find 404 page'                 
-    sock.shutdown()  
-
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
         url += LOAD_INDEX_PAGE
@@ -101,21 +87,23 @@ def send_all(sock, data):
         
 def send_data_to_client(sock, url):
     path = formated_path_to_file(url)
+
+    status = '200 OK'
+    if not os.path.exists(path):
+        status = '404 Not Found'
+        path = PATH_TO_DIRICOTRY_FILES + PAGE_FILE_NOT_FOUND
+
     extension = os.path.splitext(path)[1][1:] #file extension and delete '.'
     filesize = os.path.getsize(path)
-    print 'extension=' + extension
-    print 'mime_type=' +  mime_type[extension]
-    print 'fileSize=%i' %(filesize) 
     try:
       fileContent = open_or_throw_file(path)
-      sock.send("HTTP/1.1 200 OK\r\n")
+      sock.send("HTTP/1.1 "+ status +"\r\n")
       sock.send("Content-Length: "+str(filesize)+"\r\n")
       sock.send("Content-Type: "+ mime_type[extension] +"\r\n") 
       send_all(sock, fileContent)
       sock.close()  
     except IOError as e:
-        print 'file not found=' + e
-        send_file_noit_found(sock)
+        print 'Error opening file=' + e
         
     
       
@@ -124,7 +112,7 @@ def create_server_socket():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((LISTEN_ADDRESS, PORT_LISTEN))
     server_socket.listen(5)
-    logging.info('server socket created')
+    #logging.info('server socket created')
     return server_socket
 
 
