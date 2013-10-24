@@ -4,7 +4,6 @@ import logging
 import logging.config
 import argparse
 
-
 #////////////////////////// CONSTANTS ///////////////////////////////////////
 LISTEN_ADDRESS = '127.0.0.1'
 PORT_LISTEN = 80
@@ -23,11 +22,20 @@ logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('simpleExample')
 
 parser = argparse.ArgumentParser()
-parser.add_argument("ip")
-parser.add_argument("port")
-parser.add_argument("path")
-
+parser.add_argument("ip", nargs='?')
+parser.add_argument("port", nargs='?', type=int)
+parser.add_argument("path", nargs='?')
 args = parser.parse_args()
+
+if args.ip:
+  LISTEN_ADDRESS = args.ip
+
+if args.port:
+   PORT_LISTEN = args.port
+
+if args.path:
+    PATH_TO_DIRICOTRY_FILES = args.path
+
 print args.ip
 print args.port
 print args.path
@@ -37,7 +45,7 @@ mime_type = {};
 try:
     f = open(FILE_MIME_TYPES, 'r')
     for line in f:
-        exten, mime = line.split('        ')
+        exten, mime = line.split(' ')
         mime_type[exten] = mime
 except IOError:
     logger.debug( 'Error, file mime type dont loading'  )
