@@ -1,6 +1,8 @@
 import socket
 import os
 import logging
+import logging.config
+import argparse
 
 #////////////////////////// CONSTANTS ///////////////////////////////////////
 LISTEN_ADDRESS = '127.0.0.1'
@@ -15,15 +17,38 @@ PATH_TO_DIRICOTRY_FILES = ''
 PAGE_FILE_NOT_FOUND = '404.html'
 #////////////////////////////////////////////////////////////////////////////
 
+logging.config.fileConfig('logging.conf')
+# create logger
+logger = logging.getLogger('simpleExample')
+
+parser = argparse.ArgumentParser()
+parser.add_argument("ip", nargs='?')
+parser.add_argument("port", nargs='?', type=int)
+parser.add_argument("path", nargs='?')
+args = parser.parse_args()
+
+if args.ip:
+  LISTEN_ADDRESS = args.ip
+
+if args.port:
+   PORT_LISTEN = args.port
+
+if args.path:
+    PATH_TO_DIRICOTRY_FILES = args.path
+
+print args.ip
+print args.port
+print args.path
+
 #loads mime types
 mime_type = {};
 try:
     f = open(FILE_MIME_TYPES, 'r')
     for line in f:
-        exten, mime = line.split('	')
+        exten, mime = line.split(' ')
         mime_type[exten] = mime
 except IOError:
-    print 'Error, file mime type dont loading'   
+    logger.debug( 'Error, file mime type dont loading'  )
 
 
 
@@ -47,9 +72,9 @@ def process_client(sock):
     request = receive(sock).split("\r\n") 
     
     (method, url, http_protocol) = parse_method(request[0])
-    print 'method=' + method
-    print 'url='+ url
-    print 'http_protocol=' + http_protocol
+    logger.debug(  'method=' + method)
+    logger.debug(  'url='+ url)
+    logger.debug(  'http_protocol=' + http_protocol)
     
     headers = {}
     for header in request[1:len(request)-2]:  #start s one and delete last \r\n
@@ -62,14 +87,13 @@ def process_client(sock):
     headers['http_protocol'] = http_protocol
     headers['method'] = method
     
-    print 'end headers execute\n'    
+    logger.debug(  'end headers execute\n'    )
     send_data_to_client(sock, url) 
 
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
         url += LOAD_INDEX_PAGE
     path = PATH_TO_DIRICOTRY_FILES + url[1:]
-    print 'path=' + path
     return path;
 
 def open_or_throw_file(path):
@@ -103,7 +127,11 @@ def send_data_to_client(sock, url):
       send_all(sock, fileContent)
       sock.close()  
     except IOError as e:
+<<<<<<< HEAD
         print 'Error opening file=' + e
+=======
+        logger.error(  'Error opening file=' + e)
+>>>>>>> origin/threads-add
         
     
       
@@ -125,10 +153,9 @@ def start_server():
             process_client(clientsocket)
         except Exception as e:
             #logging.error('error!\n{}'.format(traceback.format_exc()))
-            print e
+            logger.error( e)
             clientsocket.close()
 
 
 print 'server start'
-#logging.basicConfig(level=logging.DEBUG)
 start_server()
