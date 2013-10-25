@@ -3,6 +3,8 @@ import os
 import logging
 import logging.config
 import argparse
+import urllib2
+import json
 
 #////////////////////////// CONSTANTS ///////////////////////////////////////
 LISTEN_ADDRESS = '127.0.0.1'
@@ -26,6 +28,7 @@ parser.add_argument("ip", nargs='?')
 parser.add_argument("port", nargs='?', type=int)
 parser.add_argument("path", nargs='?')
 args = parser.parse_args()
+
 
 if args.ip:
   LISTEN_ADDRESS = args.ip
@@ -69,26 +72,30 @@ def parse_method(header):
 
 
 def process_client(sock):
-    request = receive(sock).split("\r\n") 
-    
+    request = receive(sock).split("\r\n")
+
     (method, url, http_protocol) = parse_method(request[0])
     logger.debug(  'method=' + method)
     logger.debug(  'url='+ url)
     logger.debug(  'http_protocol=' + http_protocol)
-    
+
     headers = {}
     for header in request[1:len(request)-2]:  #start s one and delete last \r\n
         if header == "\r\n" :
             break
         k, v = header.split(":", 1)
         headers[k] = v
-        
+
     headers['url'] = url
     headers['http_protocol'] = http_protocol
     headers['method'] = method
-    
+
     logger.debug(  'end headers execute\n'    )
-    send_data_to_client(sock, url) 
+    if url != '/next-image/':
+      send_data_to_client(sock, url)
+      return
+    #loads image
+    send_data_image_500mb(sock, url)
 
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
@@ -108,8 +115,33 @@ def send_all(sock, data):
         if sent == 0:
             raise RuntimeError("socket connection broken")
         total_sent += sent
-        
+#task 2
+def send_data_image_500mb(sock, url):
+    logger.debug('url=' + url)
+    
+    try:
+      urlli = proccess_task2(url);
+      for head in urlli.info().headers:
+        if head.find('Content-Type') != -1:
+          content_length = head
+        if head.find('Content-Length') != -1:
+          content_type = head  
+    
+      sock.send("HTTP/1.1 200 OK\r\n")
+      sock.send(content_length)
+      sock.send(content_type)
+      sock.send("\r\n")
+      send_all(sock, urlli.read())
+      sock.close()
+    except IOError as e:
+        logger.error(  'Error opening file=' + e)
+    except:
+        logger.error(  'Error =' + e)
+
+
+
 def send_data_to_client(sock, url):
+    logger.debug('url=' + url)
     path = formated_path_to_file(url)
 
     status = '200 OK'
@@ -123,18 +155,14 @@ def send_data_to_client(sock, url):
       fileContent = open_or_throw_file(path)
       sock.send("HTTP/1.1 "+ status +"\r\n")
       sock.send("Content-Length: "+str(filesize)+"\r\n")
-      sock.send("Content-Type: "+ mime_type[extension] +"\r\n") 
+      sock.send("Content-Type: "+ mime_type[extension] +"\r\n")
       send_all(sock, fileContent)
-      sock.close()  
+      sock.close()
     except IOError as e:
-<<<<<<< HEAD
-        print 'Error opening file=' + e
-=======
         logger.error(  'Error opening file=' + e)
->>>>>>> origin/threads-add
-        
-    
-      
+
+
+
 
 def create_server_socket():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -156,6 +184,32 @@ def start_server():
             logger.error( e)
             clientsocket.close()
 
+#---------------------- TASK 2------------------
+CONSUMER_KEY = '&consumer_key=Bb6rApYNRMd0753N38zXS4vGJ46qEIW7aRSHjG3O'
+URL_API = 'https://api.500px.com/v1/photos?feature=popular' + CONSUMER_KEY;
+cacheImage = [] #array into cahce image
 
+#add photos in cacheImage
+def json_process():
+    f = urllib2.urlopen(URL_API)
+    responce = f.read()
+    jsonObj = json.loads(responce)#.decode('utf-8')
+    logger.debug( 'responce 500mb=' + responce)
+    for photo in jsonObj['photos']:
+        cacheImage.append(photo['image_url'])
+
+def proccess_task2(url):
+    logger.debug( 'proccess_task2 url=' + url)
+    if url != '/next-image/':
+        return ''
+    if len(cacheImage) == 0:
+        json_process()
+    #download image and responce
+    return urllib2.urlopen(cacheImage.pop())
+    #response = urllib2.urlopen(cacheImage.pop())
+    #image = response.read()
+    #return image
+    
+#-----------------------------------------------
 print 'server start'
 start_server()
