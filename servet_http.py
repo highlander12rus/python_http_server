@@ -135,7 +135,7 @@ def send_data_image_500mb(sock, url):
       sock.close()
     except IOError as e:
         logger.error(  'Error opening file=' + e)
-    except:
+    except Exception as e:
         logger.error(  'Error =' + e)
 
 
@@ -181,18 +181,23 @@ def start_server():
             process_client(clientsocket)
         except Exception as e:
             #logging.error('error!\n{}'.format(traceback.format_exc()))
-            logger.error( e)
+            logger.error(e)
             clientsocket.close()
 
 #---------------------- TASK 2------------------
+#page_number
 CONSUMER_KEY = '&consumer_key=Bb6rApYNRMd0753N38zXS4vGJ46qEIW7aRSHjG3O'
-URL_API = 'https://api.500px.com/v1/photos?feature=popular' + CONSUMER_KEY;
+URL_API = 'https://api.500px.com/v1/photos?feature=popular' + CONSUMER_KEY
+
 cacheImage = [] #array into cahce image
+
 
 #add photos in cacheImage
 def json_process():
-    f = urllib2.urlopen(URL_API)
+    logger.debug( 'json url request=' + "{0}&page={1}&rpp=50".format(URL_API, 1))
+    f = urllib2.urlopen("{0}&page={1}&rpp=50".format(URL_API, 1))
     responce = f.read()
+    
     jsonObj = json.loads(responce)#.decode('utf-8')
     logger.debug( 'responce 500mb=' + responce)
     for photo in jsonObj['photos']:
@@ -204,11 +209,9 @@ def proccess_task2(url):
         return ''
     if len(cacheImage) == 0:
         json_process()
-    #download image and responce
+
     return urllib2.urlopen(cacheImage.pop())
-    #response = urllib2.urlopen(cacheImage.pop())
-    #image = response.read()
-    #return image
+ 
     
 #-----------------------------------------------
 print 'server start'
