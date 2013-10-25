@@ -194,8 +194,8 @@ cacheImage = [] #array into cahce image
 
 #add photos in cacheImage
 def json_process():
-    logger.debug( 'json url request=' + "{0}&page={1}&rpp=50".format(URL_API, 1))
-    f = urllib2.urlopen("{0}&page={1}&rpp=50".format(URL_API, 1))
+    logger.debug( 'json url request=' + "{0}&page={1}".format(URL_API, 1))
+    f = urllib2.urlopen("{0}&page={1}".format(URL_API, 1))
     responce = f.read()
     
     jsonObj = json.loads(responce)#.decode('utf-8')
