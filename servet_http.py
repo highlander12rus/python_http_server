@@ -5,6 +5,7 @@ import logging.config
 import argparse
 import urllib2
 import json
+import pxapi
 
 #////////////////////////// CONSTANTS ///////////////////////////////////////
 LISTEN_ADDRESS = '127.0.0.1'
@@ -71,7 +72,7 @@ def parse_method(header):
    return  header.split(' ') #(method, url, http_protocol)
 
 
-def process_client(sock):
+def process_client(sock, px):
     request = receive(sock).split("\r\n")
 
     (method, url, http_protocol) = parse_method(request[0])
@@ -95,7 +96,7 @@ def process_client(sock):
       send_data_to_client(sock, url)
       return
     #loads image
-    send_data_image_500mb(sock, url)
+    send_data_image_500mb(sock, url, px)
 
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
@@ -103,10 +104,9 @@ def formated_path_to_file(url):
     path = PATH_TO_DIRICOTRY_FILES + url[1:]
     return path;
 
-def open_or_throw_file(path):
-    f = open(path, "rb")
-    fileContent = f.read()
-    return fileContent
+def open_or_throw_file():
+    with open(path, "rb") as f:
+      return f.read()
 
 def send_all(sock, data):
     total_sent = 0
@@ -116,27 +116,25 @@ def send_all(sock, data):
             raise RuntimeError("socket connection broken")
         total_sent += sent
 #task 2
-def send_data_image_500mb(sock, url):
+def send_data_image_500mb(sock, url, px):
+
+    
     logger.debug('url=' + url)
     
-    try:
-      urlli = proccess_task2(url);
-      for head in urlli.info().headers:
-        if head.find('Content-Type') != -1:
-          content_length = head
-        if head.find('Content-Length') != -1:
-          content_type = head  
-    
-      sock.send("HTTP/1.1 200 OK\r\n")
-      sock.send(content_length)
-      sock.send(content_type)
-      sock.send("\r\n")
-      send_all(sock, urlli.read())
-      sock.close()
-    except IOError as e:
-        logger.error(  'Error opening file=' + e)
-    except Exception as e:
-        logger.error(  'Error =' + e)
+    #try:
+    responce = px.getNextImage()
+    sock.send("HTTP/1.1 200 OK\r\n")
+    sock.send("Content-Length: "+str(responce.lengtByte)+"\r\n")
+    sock.send("Content-Type: "+responce.getMimeType() +"\r\n")
+    sock.send()
+    sock.send(responce.getBody())
+    sock.send("\r\n")
+    send_all(sock, responce.getBody())
+    sock.close()
+    #except IOError as e:
+       # logger.error(  'Error opening file=' + e)
+    #except Exception as e:
+       #logger.error(  'Error =' + e)
 
 
 
@@ -174,45 +172,21 @@ def create_server_socket():
 
 def start_server():
     serversocket = create_server_socket()
+    pxApi = pxapi.Responce()
 
+    values = {}
+    values['feature'] = 'popular'
+    pxApi.setValues(values)
+    
     while 1:
         (clientsocket, address) = serversocket.accept()
         try:
-            process_client(clientsocket)
+            process_client(clientsocket, pxApi)
+            
         except Exception as e:
             #logging.error('error!\n{}'.format(traceback.format_exc()))
             logger.error(e)
             clientsocket.close()
 
-#---------------------- TASK 2------------------
-#page_number
-CONSUMER_KEY = '&consumer_key=Bb6rApYNRMd0753N38zXS4vGJ46qEIW7aRSHjG3O'
-URL_API = 'https://api.500px.com/v1/photos?feature=popular' + CONSUMER_KEY
-
-cacheImage = [] #array into cahce image
-
-
-#add photos in cacheImage
-def json_process():
-    logger.debug( 'json url request=' + "{0}&page={1}".format(URL_API, 1))
-    f = urllib2.urlopen("{0}&page={1}".format(URL_API, 1))
-    responce = f.read()
-    
-    jsonObj = json.loads(responce)#.decode('utf-8')
-    logger.debug( 'responce 500mb=' + responce)
-    for photo in jsonObj['photos']:
-        cacheImage.append(photo['image_url'])
-
-def proccess_task2(url):
-    logger.debug( 'proccess_task2 url=' + url)
-    if url != '/next-image/':
-        return ''
-    if len(cacheImage) == 0:
-        json_process()
-
-    return urllib2.urlopen(cacheImage.pop())
- 
-    
-#-----------------------------------------------
 print 'server start'
 start_server()
