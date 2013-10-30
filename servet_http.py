@@ -3,8 +3,6 @@ import os
 import logging
 import logging.config
 import argparse
-import urllib2
-import json
 import pxapi
 
 #////////////////////////// CONSTANTS ///////////////////////////////////////
@@ -19,6 +17,13 @@ LOAD_INDEX_PAGE = 'index.html';
 PATH_TO_DIRICOTRY_FILES = ''
 PAGE_FILE_NOT_FOUND = '404.html'
 #////////////////////////////////////////////////////////////////////////////
+
+#-------------------Init api500px
+resClass = pxapi.Responce()
+options = {}
+options['feature'] = 'popular'
+resClass.setValues(options)
+#---------
 
 logging.config.fileConfig('logging.conf')
 # create logger
@@ -72,8 +77,9 @@ def parse_method(header):
    return  header.split(' ') #(method, url, http_protocol)
 
 
-def process_client(sock, px):
+def process_client(sock):
     request = receive(sock).split("\r\n")
+    logger.debug(  'start process executed')
 
     (method, url, http_protocol) = parse_method(request[0])
     logger.debug(  'method=' + method)
@@ -96,7 +102,7 @@ def process_client(sock, px):
       send_data_to_client(sock, url)
       return
     #loads image
-    send_data_image_500mb(sock, url, px)
+    send_data_image_500mb(sock, url)
 
 def formated_path_to_file(url):
     if len(url) == 1 and url == '/':
@@ -104,7 +110,7 @@ def formated_path_to_file(url):
     path = PATH_TO_DIRICOTRY_FILES + url[1:]
     return path;
 
-def open_or_throw_file():
+def open_or_throw_file(path):
     with open(path, "rb") as f:
       return f.read()
 
@@ -116,18 +122,16 @@ def send_all(sock, data):
             raise RuntimeError("socket connection broken")
         total_sent += sent
 #task 2
-def send_data_image_500mb(sock, url, px):
-
-    
-    logger.debug('url=' + url)
+def send_data_image_500mb(sock, url):
+    logger.debug('start 500mb loading=')
     
     #try:
-    responce = px.getNextImage()
+    responce = resClass.getNextImage()
+    logger.debug('responce complited=')
+    
     sock.send("HTTP/1.1 200 OK\r\n")
-    sock.send("Content-Length: "+str(responce.lengtByte)+"\r\n")
-    sock.send("Content-Type: "+responce.getMimeType() +"\r\n")
-    sock.send()
-    sock.send(responce.getBody())
+    sock.send("Content-Length: "+str(responce.getLength()))
+    sock.send("Content-Type: "+responce.getMimeType())
     sock.send("\r\n")
     send_all(sock, responce.getBody())
     sock.close()
@@ -172,16 +176,12 @@ def create_server_socket():
 
 def start_server():
     serversocket = create_server_socket()
-    pxApi = pxapi.Responce()
 
-    values = {}
-    values['feature'] = 'popular'
-    pxApi.setValues(values)
     
     while 1:
         (clientsocket, address) = serversocket.accept()
         try:
-            process_client(clientsocket, pxApi)
+            process_client(clientsocket)
             
         except Exception as e:
             #logging.error('error!\n{}'.format(traceback.format_exc()))

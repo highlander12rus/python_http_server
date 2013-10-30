@@ -1,23 +1,25 @@
 #module for responce 500px
-import urllib2
+import urllib
 import json         
 
 class Photo500mb:
      def __init__(self, urllib2Responce):
          self.body = urllib2Responce.read()
+         if Responce.DEBUG:
+             print 'start Photo500mb constructor'
          
          for head in urllib2Responce.info().headers:
             if head.find('Content-Type') != -1:
-                 self.lengtByte = head
-            if head.find('Content-Length') != -1:
                  self.typeMime = head
-         urllib2Responce.close()
+            if head.find('Content-Length') != -1:
+                 self.lengtByte = head
+         #urllib2Responce.close()
                  
      def getBody(self):
         return self.body
 
      def getLength(self):
-        return int(self.lengtByte)
+        return self.lengtByte
 
      def getMimeType(self):
          return self.typeMime
@@ -27,7 +29,7 @@ class Photo500mb:
 class Responce:
     CONSUMER_KEY = "Bb6rApYNRMd0753N38zXS4vGJ46qEIW7aRSHjG3O"
     URL_API = "https://api.500px.com/v1/photos"
-    
+    DEBUG = True
     def __init__(self):
         self.imageCache = []
         self.values = {}
@@ -49,8 +51,10 @@ class Responce:
     #hashParamets - key - parameters | value
     #return string request
     def generateParameters(self):
+        self.values['page'] = self.page 
         data = urllib.urlencode(self.values)
-        req = urllib2.Request(self.URL_API, data)
+        query_string = '?{}'.format(data)
+        req = ''.join((self.URL_API, query_string))
         return req
     
     def addCache(self, jsonObj):
@@ -60,15 +64,23 @@ class Responce:
 
     def jsonLoading(self):
         url = self.generateParameters()
-        with urllib2.urlopen() as f:
-            responce = f.read()
-            jsonObj = json.loads(responce)
+        if self.DEBUG:
+             print 'jsonLoading url={}'.format(url) 
+        f = urllib.urlopen(url)
+        responce = f.read()
+        f.close()
+        if self.DEBUG:
+             print 'jsonLoading responce={}'.format(responce) 
+        jsonObj = json.loads(responce)
+        self.addCache(jsonObj)
+        self.page += 1
+        if self.DEBUG:
+             print 'jsonLoading page={}'.format(self.page) 
 
     #public       
     def getNextImage (self):
-        if len(self.imageCache) == 0:
+        if len(self.imageCache) < 1:
             self.jsonLoading()
-        self.page += 1
-        urlope = urllib2.urlopen(self.imageCache.pop())
+        urlope = urllib.urlopen(self.imageCache.pop())
         return Photo500mb(urlope)
         
